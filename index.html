@@ -187,7 +187,7 @@
 <a class="film" href="media/film.mp4" target="_blank" rel="noopener">▷　观影</a>
 <a class="film2" href="tour.html">◎　机位漫游</a>
 
-<audio id="bgm" src="media/bgm.mp4" loop preload="none"></audio>
+<audio id="bgm" src="media/bgm.mp4" loop preload="auto"></audio>
 <div class="sound" id="soundBtn" role="button" tabindex="0">♪　听</div>
 
 <canvas id="snow"></canvas>
@@ -286,17 +286,38 @@
       }, 40);
     }
 
+    var seeked = false;
+    // 定位到 48 秒：这首曲子开头约 40 秒极安静（比中段低约 15 dB），
+    // 不从 0 开始播，否则用户会以为没有声音。
+    function applySeek() {
+      if (!seeked && bgm.duration && bgm.duration > 60) {
+        try { bgm.currentTime = 48; } catch (e) { }
+        seeked = true;
+      }
+    }
+    if (bgm.readyState >= 1) { applySeek(); }
+    else { bgm.addEventListener('loadedmetadata', applySeek, { once: true }); }
+
     function toggleMusic() {
       if (!bgm) return;
       if (!playing) {
         bgm.volume = 0;
+        // 这首曲子开头 40 秒极安静（比中段低约 15 dB），
+        // 首次播放直接进入有旋律的段落，否则用户会以为没声音
         var pr = bgm.play();
+        // 跳播必须在 play() 成功之后，否则会被忽略
+        function jumpIfNeeded() {
+          if (!seeked && bgm.duration && bgm.duration > 60) {
+            try { bgm.currentTime = 48; } catch (e) { }
+            seeked = true;
+          }
+        }
         if (pr && pr.then) {
           pr.then(function () {
-            playing = true; setLabel(true); fadeTo(0.55, 1200);
+            playing = true; setLabel(true); jumpIfNeeded(); fadeTo(0.90, 1200);
           }).catch(function () { playing = false; setLabel(false); });
         } else {
-          playing = true; setLabel(true); fadeTo(0.55, 1200);
+          playing = true; setLabel(true); jumpIfNeeded(); fadeTo(0.90, 1200);
         }
       } else {
         fadeTo(0, 800);
