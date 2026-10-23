@@ -95,6 +95,21 @@
   }
   .film2:hover{border-color:rgba(26,31,40,.6);background:rgba(244,241,232,.95);}
 
+  /* 配乐开关（默认静音，用户主动开启） */
+  .sound{
+    position:fixed;right:clamp(16px,3vw,52px);top:calc(clamp(16px,4vh,52px) + 88px);
+    z-index:12;cursor:pointer;user-select:none;
+    font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(12px,1.05vw,15px);letter-spacing:.16em;
+    color:var(--ink);padding:.55em 1.05em;
+    border:1px solid rgba(26,31,40,.28);border-radius:2px;
+    background:rgba(244,241,232,.72);backdrop-filter:blur(3px);
+    transition:all .25s ease;
+  }
+  .sound:hover{border-color:rgba(26,31,40,.6);background:rgba(244,241,232,.95);}
+  .sound.on{border-color:rgba(176,39,30,.55);color:#8C2B22;}
+  .sound i{font-style:normal;margin-right:.4em;opacity:.8;}
+
   /* 落款 */
   .sign{
     position:fixed;left:clamp(18px,4vw,64px);bottom:clamp(16px,4vh,52px);
@@ -172,6 +187,9 @@
 <a class="film" href="media/film.mp4" target="_blank" rel="noopener">▷　观影</a>
 <a class="film2" href="tour.html">◎　机位漫游</a>
 
+<audio id="bgm" src="media/bgm.mp4" loop preload="none"></audio>
+<div class="sound" id="soundBtn" role="button" tabindex="0">♪　听</div>
+
 <canvas id="snow"></canvas>
 <div class="verse" id="verse">雪一落，南京就变成了金陵</div>
 <div class="fog" id="fog"></div>
@@ -243,6 +261,60 @@
     // 单击隐藏/显示提示
     viewer.addHandler('canvas-click', function () {
       hint.classList.remove('show');
+    });
+
+    // ---- 配乐开关：默认静音，点击开启，音量渐入渐出 ----
+    var bgm = document.getElementById('bgm');
+    var sbtn = document.getElementById('soundBtn');
+    var playing = false;
+    var fadeTimer = null;
+
+    function setLabel(on) {
+      sbtn.innerHTML = on ? '♪　静' : '♪　听';
+      sbtn.classList.toggle('on', on);
+    }
+    setLabel(false);
+
+    function fadeTo(target, ms) {
+      if (!bgm) return;
+      var start = bgm.volume, t0 = performance.now();
+      clearInterval(fadeTimer);
+      fadeTimer = setInterval(function () {
+        var k = Math.min(1, (performance.now() - t0) / ms);
+        bgm.volume = Math.max(0, Math.min(1, start + (target - start) * k));
+        if (k >= 1) clearInterval(fadeTimer);
+      }, 40);
+    }
+
+    function toggleMusic() {
+      if (!bgm) return;
+      if (!playing) {
+        bgm.volume = 0;
+        var pr = bgm.play();
+        if (pr && pr.then) {
+          pr.then(function () {
+            playing = true; setLabel(true); fadeTo(0.55, 1200);
+          }).catch(function () { playing = false; setLabel(false); });
+        } else {
+          playing = true; setLabel(true); fadeTo(0.55, 1200);
+        }
+      } else {
+        fadeTo(0, 800);
+        setTimeout(function () { bgm.pause(); }, 820);
+        playing = false; setLabel(false);
+      }
+    }
+
+    sbtn.addEventListener('click', toggleMusic);
+    sbtn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMusic(); }
+    });
+
+    // 切到后台自动静音，回来不自动恢复（避免评审现场突然出声）
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && playing) {
+        bgm.pause(); playing = false; setLabel(false);
+      }
     });
 
     // ============ 落雪 + 过界雾 + 题句 ============
