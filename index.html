@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="icon" href="data:,">
+<title>水墨金陵梦 · 数字长卷</title>
+<style>
+  :root{
+    --paper:#f4f1e8;
+    --ink:#1a1f28;
+    --ink-soft:#5b6472;
+    --seal:#b4271e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);}
+  body{
+    font-family:"STXingka","华文行楷","KaiTi","楷体",serif;
+    -webkit-font-smoothing:antialiased;
+    color:var(--ink);
+  }
+  /* 纸纹：极淡的噪点叠加，避免纯色板结 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:radial-gradient(rgba(120,110,90,.055) 1px,transparent 1px);
+    background-size:3px 3px;
+    mix-blend-mode:multiply;
+  }
+  #viewer{position:fixed;inset:0;background:var(--paper);z-index:0;}
+
+  /* 题款 */
+  .title{
+    position:fixed;left:clamp(18px,4vw,64px);top:clamp(18px,5vh,64px);
+    z-index:10;pointer-events:none;
+    writing-mode:vertical-rl;text-orientation:upright;
+    font-size:clamp(34px,5.2vw,84px);
+    letter-spacing:.14em;
+    line-height:1.06;
+    color:var(--ink);
+    text-shadow:0 0 22px rgba(244,241,232,.9);
+    opacity:.94;
+  }
+  .subtitle{
+    position:fixed;left:clamp(14px,3vw,46px);top:clamp(18px,5vh,64px);
+    z-index:10;pointer-events:none;
+    writing-mode:vertical-rl;text-orientation:upright;
+    font-size:clamp(12px,1.15vw,17px);
+    letter-spacing:.34em;
+    color:var(--ink-soft);opacity:.8;
+  }
+  .seal{
+    position:fixed;right:clamp(16px,3vw,52px);bottom:clamp(16px,4vh,52px);
+    z-index:10;pointer-events:none;
+    width:clamp(46px,4.2vw,68px);height:clamp(46px,4.2vw,68px);
+    border-radius:6px;background:var(--seal);
+    display:flex;align-items:center;justify-content:center;
+    color:#fdf6ec;font-size:clamp(15px,1.5vw,22px);
+    letter-spacing:0;line-height:1.05;text-align:center;
+    box-shadow:0 2px 12px rgba(0,0,0,.10);
+    opacity:.9;font-family:"STKaiti","KaiTi",serif;
+  }
+  .seal span{writing-mode:vertical-rl;text-orientation:upright;}
+
+  /* 操作提示 */
+  .hint{
+    position:fixed;left:50%;bottom:clamp(14px,3.4vh,38px);transform:translateX(-50%);
+    z-index:10;pointer-events:none;
+    font-size:clamp(11px,1vw,14px);letter-spacing:.22em;color:var(--ink-soft);
+    opacity:0;transition:opacity .8s ease;
+    font-family:"STKaiti","KaiTi",serif;
+  }
+  .hint.show{opacity:.72;}
+
+  /* 观影入口 */
+  .film{    position:fixed;right:clamp(16px,3vw,52px);top:clamp(16px,4vh,52px);
+    z-index:12;text-decoration:none;
+    font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(12px,1.05vw,15px);letter-spacing:.18em;
+    color:var(--ink);padding:.55em 1.05em;
+    border:1px solid rgba(26,31,40,.28);border-radius:2px;
+    background:rgba(244,241,232,.72);
+    backdrop-filter:blur(3px);
+    transition:all .25s ease;
+  }
+  .film:hover{border-color:rgba(26,31,40,.6);background:rgba(244,241,232,.95);}
+  .film2{
+    position:fixed;right:clamp(16px,3vw,52px);top:calc(clamp(16px,4vh,52px) + 44px);
+    z-index:12;text-decoration:none;
+    font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(12px,1.05vw,15px);letter-spacing:.18em;
+    color:var(--ink);padding:.55em 1.05em;
+    border:1px solid rgba(26,31,40,.28);border-radius:2px;
+    background:rgba(244,241,232,.72);backdrop-filter:blur(3px);
+    transition:all .25s ease;
+  }
+  .film2:hover{border-color:rgba(26,31,40,.6);background:rgba(244,241,232,.95);}
+
+  /* 落款 */
+  .sign{
+    position:fixed;left:clamp(18px,4vw,64px);bottom:clamp(16px,4vh,52px);
+    z-index:10;pointer-events:none;
+    font-size:clamp(11px,1vw,14px);letter-spacing:.2em;
+    color:var(--ink-soft);opacity:.62;
+  }
+
+  /* 落雪图层（只画在冬季那一半） */
+  #snow{
+    position:fixed;inset:0;z-index:6;pointer-events:none;
+  }
+
+  /* 过界雾气：从春夏滑到冬雪时闪一下 */
+  .fog{
+    position:fixed;inset:0;z-index:7;pointer-events:none;opacity:0;
+    background:radial-gradient(ellipse at 50% 62%,
+      rgba(252,251,247,.96) 0%,
+      rgba(250,249,244,.86) 38%,
+      rgba(248,246,240,.0) 78%);
+    transition:opacity 1.35s ease;
+  }
+  .fog.on{opacity:1;transition:opacity .28s ease;}
+
+  /* 「雪一落，南京就变成了金陵」 */
+  .verse{
+    position:fixed;left:50%;top:26%;transform:translate(-50%,-50%);
+    z-index:11;pointer-events:none;white-space:nowrap;
+    font-family:"STXingka","华文行楷","KaiTi","楷体",serif;
+    font-size:clamp(18px,2.5vw,40px);
+    letter-spacing:.30em;
+    color:#20262f;
+    opacity:0;
+    text-shadow:0 0 26px rgba(247,245,238,.98),0 0 10px rgba(247,245,238,.9);
+    transition:opacity 1.1s ease;
+  }
+  .verse.on{opacity:.95;}
+  @media (max-width:640px){
+    .verse{font-size:clamp(15px,4.2vw,24px);letter-spacing:.16em;white-space:normal;
+           width:82vw;text-align:center;}
+  }
+
+  /* 载入时的墨点 */
+  #loading{
+    position:fixed;inset:0;z-index:30;background:var(--paper);
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity .7s ease;
+  }
+  #loading.hide{opacity:0;pointer-events:none;}
+  .dot{
+    width:14px;height:14px;border-radius:50%;background:var(--ink);
+    animation:ink 1.15s ease-in-out infinite;
+    box-shadow:0 0 18px rgba(26,31,40,.35);
+  }
+  @keyframes ink{
+    0%,100%{transform:scale(.55);opacity:.35;}
+    50%{transform:scale(1.15);opacity:.9;}
+  }
+  @media (max-width:640px){
+    .title{letter-spacing:.08em;}
+    .subtitle{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="viewer"></div>
+
+<div class="subtitle">金陵古今　山河入梦　·　同景异时</div>
+<div class="title">水墨金陵梦</div>
+<div class="seal"><span>金陵</span></div>
+<div class="sign">乙巳秋日写于金陵</div>
+<div class="hint">左　春 夏　·　右　冬 雪　·　滚轮缩放　·　拖拽平移</div>
+
+<a class="film" href="media/film.mp4" target="_blank" rel="noopener">▷　观影</a>
+<a class="film2" href="tour.html">◎　机位漫游</a>
+
+<canvas id="snow"></canvas>
+<div class="verse" id="verse">雪一落，南京就变成了金陵</div>
+<div class="fog" id="fog"></div>
+
+<div id="loading"><div class="dot"></div></div>
+
+<!-- 本地库优先，失败回退 CDN -->
+<script src="lib/openseadragon.min.js"></script>
+<script>
+(function () {
+  if (!window.OpenSeadragon) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js';
+    s.onload = boot;
+    document.head.appendChild(s);
+  } else {
+    boot();
+  }
+
+  function boot() {
+    var viewer = OpenSeadragon({
+      id: 'viewer',
+      prefixUrl: '',
+      tileSources: 'tiles/hero.dzi',
+      showNavigationControl: false,
+      showNavigator: true,
+      navigatorPosition: 'BOTTOM_RIGHT',
+      navigatorSizeRatio: 0.13,
+      navigatorBackground: '#f4f1e8',
+      navigatorOpacity: 0.85,
+      navigatorBorderColor: 'rgba(26,31,40,.18)',
+      navigatorDisplayRegionColor: '#b4271e',
+      gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true, flickEnabled: true },
+      gestureSettingsTouch: { pinchToZoom: true, flickEnabled: true },
+      showRotationControl: false,
+      animationTime: 1.1,
+      blendTime: 0.25,
+      maxZoomPixelRatio: 3.2,
+      minZoomImageRatio: 0.85,
+      visibilityRatio: 0.9,
+      constrainDuringPan: true,
+      immediateRender: true,
+      imageLoaderLimit: 6,
+      crossOriginPolicy: false
+    });
+
+    var loading = document.getElementById('loading');
+    var hint = document.querySelector('.hint');
+
+    viewer.addHandler('open', function () {
+      // 双联长卷：左半春夏、右半冬雪。开场从接缝处拉开，先看到两个时令的分界
+      var img = viewer.world.getItemAt(0);
+      var W = img.source.dimensions.x, H = img.source.dimensions.y;
+      var mid = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.5);
+      viewer.viewport.panTo(mid, true);
+      viewer.viewport.zoomTo(0.95, mid, true);
+      window.__seam = mid;
+      window.__imgW = W;
+      setTimeout(function () {
+        loading.classList.add('hide');
+        // 略微推近，让接缝两侧都清楚
+        var near = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.54);
+        viewer.viewport.zoomTo(2.05, near, false);
+        setTimeout(function () { hint.classList.add('show'); }, 400);
+        setTimeout(function () { hint.classList.remove('show'); }, 8000);
+      }, 220);
+    });
+
+    // 单击隐藏/显示提示
+    viewer.addHandler('canvas-click', function () {
+      hint.classList.remove('show');
+    });
+
+    // ============ 落雪 + 过界雾 + 题句 ============
+    var cvs = document.getElementById('snow');
+    var ctx = cvs.getContext('2d');
+    var verse = document.getElementById('verse');
+    var fog = document.getElementById('fog');
+
+    var SEAM_FRAC = 0.5;        // 接缝在整卷中的位置
+    var flakes = [];
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function resize() {
+      cvs.width = Math.floor(window.innerWidth * dpr);
+      cvs.height = Math.floor(window.innerHeight * dpr);
+      cvs.style.width = window.innerWidth + 'px';
+      cvs.style.height = window.innerHeight + 'px';
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function spawn() {
+      var n = Math.round(window.innerWidth / 9);
+      flakes = [];
+      for (var i = 0; i < n; i++) {
+        flakes.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          r: 0.7 + Math.random() * 2.1,
+          vy: 14 + Math.random() * 30,        // px/s
+          vx: -8 + Math.random() * 16,
+          a: 0.25 + Math.random() * 0.55,
+          ph: Math.random() * 6.28,
+          sp: 0.6 + Math.random() * 1.4
+        });
+      }
+    }
+    spawn();
+    window.addEventListener('resize', spawn);
+
+    // 计算"接缝在屏幕上的 x"（图不旋转，图像竖线映射到屏幕仍是竖线）
+    function seamScreenX() {
+      try {
+        var vp = viewer.viewport;
+        var pImg = vp.imageToViewportCoordinates(window.__imgW * SEAM_FRAC, 0);
+        var pPix = vp.pixelFromPoint(pImg);
+        return pPix.x;
+      } catch (e) { return window.innerWidth; }
+    }
+
+    var last = performance.now();
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      var sx = seamScreenX();
+      ctx.fillStyle = '#ffffff';
+
+      for (var i = 0; i < flakes.length; i++) {
+        var f = flakes[i];
+        f.y += f.vy * dt;
+        f.x += (f.vx + Math.sin(now / 900 + f.ph) * 12 * f.sp) * dt;
+        if (f.y > window.innerHeight + 6) { f.y = -6; f.x = sx + Math.random() * (window.innerWidth - sx); }
+        if (f.x < sx) f.x = sx + Math.random() * 40;   // 只在冬季一侧
+        if (f.x > window.innerWidth + 6) f.x = sx + Math.random() * 40;
+
+        // 接缝附近淡入，避免生硬切断
+        var edge = Math.min(1, (f.x - sx) / 70);
+        if (edge <= 0.02) continue;
+        ctx.globalAlpha = f.a * edge;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // 判断当前视口中心落在冬/春哪一半
+    var inWinter = false;
+    var verseTimer = null;
+    var fogTimer = null;
+
+    function checkSide() {
+      try {
+        var vp = viewer.viewport;
+        var c = vp.getCenter(true);                 // viewport 坐标
+        var img = vp.viewportToImageCoordinates(c);
+        // 迟滞：只有明确越过接缝 6% 才算"进入冬季"，避免停在缝上误触发
+        var frac = img.x / window.__imgW;
+        var nowWinter = inWinter ? (frac > SEAM_FRAC - 0.02)
+                                 : (frac > SEAM_FRAC + 0.06);
+        if (nowWinter === inWinter) return;
+        inWinter = nowWinter;
+
+        if (inWinter) {
+          // 过界：先闪一层雾
+          fog.classList.add('on');
+          clearTimeout(fogTimer);
+          fogTimer = setTimeout(function () { fog.classList.remove('on'); }, 520);
+
+          // 约 0.6 秒后出题句，停 3 秒后淡出
+          clearTimeout(verseTimer);
+          setTimeout(function () { verse.classList.add('on'); }, 620);
+          verseTimer = setTimeout(function () { verse.classList.remove('on'); }, 3620);
+        } else {
+          verse.classList.remove('on');
+          clearTimeout(verseTimer);
+        }
+      } catch (e) { }
+    }
+
+    viewer.addHandler('animation', checkSide);
+    viewer.addHandler('animation-finish', checkSide);
+    viewer.addHandler('pan', checkSide);
+    viewer.addHandler('zoom', checkSide);
+  }
+})();
+</script>
+</body>
+</html>

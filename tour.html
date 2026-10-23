@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>水墨金陵梦 · 机位漫游</title>
+<style>
+  :root{
+    --paper:#f4f1e8; --ink:#1a1f28; --ink-soft:#5b6472; --seal:#b4271e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);}
+  body{
+    font-family:"STXingka","华文行楷","KaiTi","楷体",serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:5;
+    background-image:radial-gradient(rgba(120,110,90,.05) 1px,transparent 1px);
+    background-size:3px 3px;mix-blend-mode:multiply;
+  }
+
+  #stage{position:fixed;inset:0;overflow:hidden;background:var(--paper);}
+  .frame{
+    position:absolute;inset:0;
+    background-position:center center;
+    background-repeat:no-repeat;
+    background-size:cover;
+    opacity:0;
+    transform:scale(1.0);
+    transition:opacity 1.05s ease;
+    will-change:opacity,transform;
+  }
+  .frame.on{opacity:1;}
+  /* 缓慢推近，避免静止呆板 */
+  .frame.on{animation:drift 18s linear forwards;}
+  @keyframes drift{
+    from{transform:scale(1.02);}
+    to{transform:scale(1.10);}
+  }
+
+  /* 题款 */
+  .title{
+    position:fixed;left:clamp(16px,3.6vw,56px);top:clamp(16px,4vh,56px);
+    z-index:10;pointer-events:none;
+    writing-mode:vertical-rl;text-orientation:upright;
+    font-size:clamp(26px,3.4vw,54px);letter-spacing:.14em;line-height:1.08;
+    text-shadow:0 0 20px rgba(244,241,232,.92);opacity:.93;
+  }
+
+  /* 当前机位说明 */
+  .caption{
+    position:fixed;left:clamp(16px,3.6vw,56px);bottom:clamp(18px,4.5vh,56px);
+    z-index:10;pointer-events:none;max-width:min(46ch,52vw);
+    transition:opacity .5s ease;
+  }
+  .cap-name{
+    font-size:clamp(17px,1.75vw,26px);letter-spacing:.14em;
+    color:var(--ink);
+  }
+  .cap-desc{
+    margin-top:.5em;font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(11px,.98vw,14px);letter-spacing:.08em;
+    color:var(--ink-soft);line-height:1.75;opacity:.9;
+  }
+
+  /* 右侧机位导航 */
+  .nav{
+    position:fixed;right:clamp(14px,2.6vw,42px);top:50%;transform:translateY(-50%);
+    z-index:12;display:flex;flex-direction:column;gap:clamp(10px,1.6vh,20px);
+    align-items:flex-end;
+  }
+  .dot{
+    display:flex;align-items:center;gap:.7em;cursor:pointer;
+    opacity:.42;transition:opacity .3s ease;
+  }
+  .dot:hover{opacity:.85;}
+  .dot.on{opacity:1;}
+  .dot i{
+    display:block;width:7px;height:7px;border-radius:50%;
+    background:var(--ink);flex:none;transition:transform .3s ease;
+  }
+  .dot.on i{transform:scale(1.6);background:var(--seal);}
+  .dot span{
+    font-family:"STKaiti","KaiTi",serif;font-size:clamp(10px,.9vw,13px);
+    letter-spacing:.12em;color:var(--ink);white-space:nowrap;
+    opacity:0;transform:translateX(6px);transition:all .3s ease;
+  }
+  .dot:hover span,.dot.on span{opacity:.9;transform:translateX(0);}
+
+  /* 底部提示与进度 */
+  .bar{
+    position:fixed;left:50%;bottom:clamp(12px,2.6vh,30px);transform:translateX(-50%);
+    z-index:10;display:flex;align-items:center;gap:1.2em;
+    font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(10px,.88vw,12px);letter-spacing:.2em;color:var(--ink-soft);
+  }
+  .bar b{font-weight:400;color:var(--ink);}
+  .tip{opacity:.62;}
+
+  /* 左上角返回 */
+  .back{
+    position:fixed;right:clamp(14px,2.6vw,42px);top:clamp(14px,3vh,42px);
+    z-index:12;text-decoration:none;color:var(--ink);
+    font-family:"STKaiti","KaiTi",serif;
+    font-size:clamp(11px,.96vw,14px);letter-spacing:.16em;
+    padding:.5em 1em;border:1px solid rgba(26,31,40,.28);border-radius:2px;
+    background:rgba(244,241,232,.7);backdrop-filter:blur(3px);
+    transition:all .25s ease;
+  }
+  .back:hover{border-color:rgba(26,31,40,.6);background:rgba(244,241,232,.95);}
+
+  @media (max-width:700px){
+    .nav{display:none;}
+    .caption{max-width:76vw;}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage"></div>
+
+<div class="title">水墨金陵梦</div>
+<a class="back" href="index.html">←　长卷</a>
+
+<div class="caption">
+  <div class="cap-name" id="capName"></div>
+  <div class="cap-desc" id="capDesc"></div>
+</div>
+
+<div class="nav" id="nav"></div>
+
+<div class="bar">
+  <span><b id="idx">1</b> / <span id="tot">8</span></span>
+  <span class="tip">滚轮 / 方向键切换机位</span>
+</div>
+
+<script>
+(function () {
+  var STOPS = [
+    { img: 'tour/01_zsl_gate.jpg',  name: '中山陵 · 博爱坊',
+      desc: '自牌坊前仰望，长阶层层抬升，祭堂居最高处。' },
+    { img: 'tour/02_zsl_hall.jpg',  name: '中山陵 · 祭堂',
+      desc: '蓝顶祭堂与东西配亭，两级平台夹持中轴。' },
+    { img: 'tour/03_citywall.jpg',  name: '明城墙 · 中华门',
+      desc: '洪武年间城垣，雉堞连绵，瓮城三券门。' },
+    { img: 'tour/04_fuzimiao.jpg', name: '夫子庙 · 秦淮河',
+      desc: '画舫、灯笼、游人，河房鳞次，文脉所在。' },
+    { img: 'tour/05_wuyi.jpg',      name: '乌衣巷 · 老门东',
+      desc: '窄巷粉墙黛瓦，昔年王谢堂前燕子。' },
+    { img: 'tour/06_statue.jpg',    name: '孙中山铜像',
+      desc: '新街口立像，中山装长身，立于现代楼群之间。' },
+    { img: 'tour/07_zifeng.jpg',    name: '紫峰 · 南京眼',
+      desc: '四百五十米之巅，一桥如环，古今对望。' },
+    { img: 'tour/08_panorama.jpg',  name: '全景 · 古今长卷',
+      desc: '自中山陵至紫峰，一江秦淮贯串千年。' }
+  ];
+
+  var stage = document.getElementById('stage');
+  var nav = document.getElementById('nav');
+  var idxEl = document.getElementById('idx');
+  document.getElementById('tot').textContent = STOPS.length;
+
+  var frames = [], dots = [], cur = 0, busy = false;
+
+  STOPS.forEach(function (s, i) {
+    var d = document.createElement('div');
+    d.className = 'frame';
+    d.style.backgroundImage = 'url("' + (s.img2 || s.img) + '")';
+    stage.appendChild(d);
+    frames.push(d);
+
+    var dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.innerHTML = '<span>' + s.name + '</span><i></i>';
+    dot.addEventListener('click', function () { go(i); });
+    nav.appendChild(dot);
+    dots.push(dot);
+  });
+
+  function go(n) {
+    n = (n + STOPS.length) % STOPS.length;
+    if (n === cur || busy) return;
+    busy = true;
+    cur = n;
+
+    frames.forEach(function (f, i) { f.classList.toggle('on', i === n); });
+    dots.forEach(function (d, i) { d.classList.toggle('on', i === n); });
+
+    var s = STOPS[n];
+    var capName = document.getElementById('capName');
+    var capDesc = document.getElementById('capDesc');
+    capName.style.opacity = 0; capDesc.style.opacity = 0;
+    setTimeout(function () {
+      capName.textContent = s.name;
+      capDesc.textContent = s.desc;
+      capName.style.opacity = 1; capDesc.style.opacity = 1;
+    }, 240);
+
+    idxEl.textContent = n + 1;
+    setTimeout(function () { busy = false; }, 700);
+  }
+
+  // 初始化
+  document.getElementById('capName').textContent = STOPS[0].name;
+  document.getElementById('capDesc').textContent = STOPS[0].desc;
+  frames[0].classList.add('on');
+  dots[0].classList.add('on');
+
+  // 输入：滚轮 / 方向键 / 上下滑
+  var lastWheel = 0;
+  window.addEventListener('wheel', function (e) {
+    var t = Date.now();
+    if (t - lastWheel < 620) return;
+    if (Math.abs(e.deltaY) < 8) return;
+    lastWheel = t;
+    go(cur + (e.deltaY > 0 ? 1 : -1));
+  }, { passive: true });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') go(cur + 1);
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') go(cur - 1);
+  });
+
+  var ty = null;
+  window.addEventListener('touchstart', function (e) {
+    ty = e.touches[0].clientY;
+  }, { passive: true });
+  window.addEventListener('touchend', function (e) {
+    if (ty === null) return;
+    var dy = ty - e.changedTouches[0].clientY;
+    if (Math.abs(dy) > 40) go(cur + (dy > 0 ? 1 : -1));
+    ty = null;
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>
