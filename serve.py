@@ -29,7 +29,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    with socketserver.TCPServer(('127.0.0.1', PORT), Handler) as httpd:
+    # 必须用多线程版本：DZI 查看器会并发请求几十块瓦片，
+    # 单线程的 TCPServer 会把它们排成队，本地预览会异常地慢。
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    with Server(('127.0.0.1', PORT), Handler) as httpd:
         print('水墨金陵梦 · 数字长卷')
         print('  目录：%s' % ROOT)
         print('  地址：http://127.0.0.1:%d/' % PORT)
