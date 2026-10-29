@@ -251,7 +251,6 @@
       // ---- 把移动范围限制在画幅内部 ----
       // 1) 平移：视口不得越过画幅边界
       var vp = viewer.viewport;
-      vp.maxBounds = img.getBounds();
       vp.visibilityRatio = 1.0;
 
       // 2) 缩放：最小缩放 = 画幅恰好填满视口（cover），
@@ -287,7 +286,6 @@
         var cs = vp.getContainerSize();
         var imageAR = W / H, viewerAR = cs.x / cs.y;
         var coverFactor = imageAR > viewerAR ? (imageAR / viewerAR) : 1.0;
-        vp.maxBounds = img.getBounds();
         vp.visibilityRatio = 1.0;
         vp.minZoomImageRatio = coverFactor;
         vp.applyConstraints();
