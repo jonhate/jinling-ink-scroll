@@ -31,9 +31,12 @@
     position:fixed;inset:0;width:100%;height:100%;
     object-fit:cover;object-position:center;
     z-index:0;pointer-events:none;
-    transition:opacity .8s ease;
-    filter:blur(0px);
+    transition:opacity .9s ease;
+    /* 小图放大 + 模糊：像刻意的虚化，瓦片铺上后自然变清晰 */
+    transform:scale(1.06);
+    filter:blur(11px) saturate(1.03);
   }
+  #poster.ready{filter:blur(11px) saturate(1.03);}
   #poster.hide{opacity:0;}
 
   /* 题款 */
@@ -190,7 +193,7 @@
 </head>
 <body>
 
-<img id="poster" src="tiles/poster.jpg" alt="">
+<img id="poster" src="tiles/poster_small.jpg" alt="">
 <div id="viewer"></div>
 
 <div class="subtitle">金陵古今　山河入梦　·　同景异时</div>
