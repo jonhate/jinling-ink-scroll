@@ -258,6 +258,29 @@
     window.__osd = viewer;
     var loading = document.getElementById('loading');
     var hint = document.querySelector('.hint');
+    var pst = document.getElementById('poster');
+
+    // ---- 占位图就绪即撤载入遮罩 ----
+    // 这段必须在 open 之前执行：open 要等 OpenSeadragon 脚本下载完才触发，
+    // 慢网下会晚好几秒，而占位图是普通 <img>，更早就绪。
+    var loadingHidden = false;
+    function hideLoading() {
+      if (loadingHidden) return;
+      loadingHidden = true;
+      loading.classList.add('hide');
+    }
+    (function waitPoster() {
+      if (!pst) { hideLoading(); return; }
+      if (pst.complete && pst.naturalWidth > 0) { hideLoading(); return; }
+      var waited = 0;
+      var tick = setInterval(function () {
+        waited += 150;
+        if ((pst.complete && pst.naturalWidth > 0) || waited >= 8000) {
+          clearInterval(tick);
+          hideLoading();
+        }
+      }, 150);
+    })();
 
     viewer.addHandler('open', function () {
       // 双联长卷：左半春夏、右半冬雪。开场从接缝处拉开，先看到两个时令的分界
@@ -290,31 +313,12 @@
       var near = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.54);
       viewer.viewport.zoomTo(coverZoom * 1.30, near, false);
 
-      var pst = document.getElementById('poster');
-
-      // 第一步：占位图就绪 -> 立刻撤掉载入遮罩（此时用户已经能看到画）
-      var loadingHidden = false;
-      function hideLoading() {
-        if (loadingHidden) return;
-        loadingHidden = true;
-        loading.classList.add('hide');
-      }
-      if (pst) {
-        if (pst.complete && pst.naturalWidth) { hideLoading(); }
-        else {
-          pst.addEventListener('load', hideLoading, { once: true });
-          pst.addEventListener('error', hideLoading, { once: true });
-        }
-      } else {
-        hideLoading();
-      }
-      setTimeout(hideLoading, 6000);   // 兜底
-
       // 第二步：等瓦片铺得差不多，再把占位图淡出
       // （占位图盖在画布之上，避免露出还没铺满的花屏）
       var drawn = 0;
       var revealed = false;
       var firstTileAt = 0;
+      var hintShown = false;
 
       function reveal() {
         if (revealed) return;
@@ -324,6 +328,11 @@
           setTimeout(function () { if (pst.parentNode) pst.remove(); }, 1300);
         }
         hideLoading();
+        if (!hintShown) {
+          hintShown = true;
+          setTimeout(function () { hint.classList.add('show'); }, 400);
+          setTimeout(function () { hint.classList.remove('show'); }, 8000);
+        }
       }
 
       viewer.addHandler('tile-drawn', function () {
@@ -334,9 +343,6 @@
           reveal();
         }
       });
-        setTimeout(function () { hint.classList.add('show'); }, 400);
-        setTimeout(function () { hint.classList.remove('show'); }, 8000);
-      }
       // 兜底：最多等 15 秒
       setTimeout(reveal, 15000);
     });
