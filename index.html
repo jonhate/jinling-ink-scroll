@@ -228,14 +228,15 @@
       animationTime: 1.1,
       blendTime: 0.25,
       maxZoomPixelRatio: 3.2,
-      minZoomImageRatio: 0.85,
-      visibilityRatio: 0.9,
+      visibilityRatio: 1.0,
       constrainDuringPan: true,
+      homeFillsViewer: false,
       immediateRender: true,
       imageLoaderLimit: 6,
       crossOriginPolicy: false
     });
 
+    window.__osd = viewer;
     var loading = document.getElementById('loading');
     var hint = document.querySelector('.hint');
 
@@ -244,19 +245,55 @@
       var img = viewer.world.getItemAt(0);
       var W = img.source.dimensions.x, H = img.source.dimensions.y;
       var mid = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.5);
-      viewer.viewport.panTo(mid, true);
-      viewer.viewport.zoomTo(0.95, mid, true);
       window.__seam = mid;
       window.__imgW = W;
+
+      // ---- 把移动范围限制在画幅内部 ----
+      // 1) 平移：视口不得越过画幅边界
+      var vp = viewer.viewport;
+      vp.maxBounds = img.getBounds();
+      vp.visibilityRatio = 1.0;
+
+      // 2) 缩放：最小缩放 = 画幅恰好填满视口（cover），
+      //    这样绝不会缩到画幅之外露出空白纸
+      var cs = vp.getContainerSize();
+      var imageAR = W / H, viewerAR = cs.x / cs.y;
+      var coverFactor = imageAR > viewerAR ? (imageAR / viewerAR) : 1.0;
+      // 留 2% 余量，避免因浮点误差被立即约束回弹
+      vp.minZoomImageRatio = coverFactor;
+      var coverZoom = vp.getHomeZoom() * coverFactor;
+      window.__coverZoom = coverZoom;
+
+      vp.panTo(mid, true);
+      vp.zoomTo(coverZoom, mid, true);
+
       setTimeout(function () {
         loading.classList.add('hide');
         // 略微推近，让接缝两侧都清楚
         var near = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.54);
-        viewer.viewport.zoomTo(2.05, near, false);
+        viewer.viewport.zoomTo(coverZoom * 1.30, near, false);
         setTimeout(function () { hint.classList.add('show'); }, 400);
         setTimeout(function () { hint.classList.remove('show'); }, 8000);
       }, 220);
     });
+
+    // 视口变化后再次套用约束（缩窗 / 旋屏时保持"不越界"）
+    function reapplyBounds() {
+      try {
+        var vp = viewer.viewport;
+        var img = viewer.world.getItemAt(0);
+        if (!img) return;
+        var W = img.source.dimensions.x, H = img.source.dimensions.y;
+        var cs = vp.getContainerSize();
+        var imageAR = W / H, viewerAR = cs.x / cs.y;
+        var coverFactor = imageAR > viewerAR ? (imageAR / viewerAR) : 1.0;
+        vp.maxBounds = img.getBounds();
+        vp.visibilityRatio = 1.0;
+        vp.minZoomImageRatio = coverFactor;
+        vp.applyConstraints();
+      } catch (e) { }
+    }
+    window.addEventListener('resize', function () { setTimeout(reapplyBounds, 120); });
 
     // 单击隐藏/显示提示
     viewer.addHandler('canvas-click', function () {
