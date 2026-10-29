@@ -30,8 +30,8 @@
   #poster{
     position:fixed;inset:0;width:100%;height:100%;
     object-fit:cover;object-position:center;
-    z-index:0;pointer-events:none;
-    transition:opacity .9s ease;
+    z-index:2;pointer-events:none;
+    transition:opacity 1.1s ease;
     /* 小图放大 + 模糊：像刻意的虚化，瓦片铺上后自然变清晰 */
     transform:scale(1.06);
     filter:blur(11px) saturate(1.03);
@@ -310,23 +310,35 @@
       }
       setTimeout(hideLoading, 6000);   // 兜底
 
-      // 第二步：第一块瓦片画出来 -> 淡出占位图
+      // 第二步：等瓦片铺得差不多，再把占位图淡出
+      // （占位图盖在画布之上，避免露出还没铺满的花屏）
+      var drawn = 0;
       var revealed = false;
+      var firstTileAt = 0;
+
       function reveal() {
         if (revealed) return;
         revealed = true;
         if (pst) {
           pst.classList.add('hide');
-          setTimeout(function () { if (pst.parentNode) pst.remove(); }, 900);
+          setTimeout(function () { if (pst.parentNode) pst.remove(); }, 1300);
         }
         hideLoading();
+      }
+
+      viewer.addHandler('tile-drawn', function () {
+        drawn++;
+        if (!firstTileAt) firstTileAt = performance.now();
+        // 画够 8 块，或首块之后又过了 4 秒，就淡出
+        if (drawn >= 8 || (firstTileAt && performance.now() - firstTileAt > 4000)) {
+          reveal();
+        }
+      });
         setTimeout(function () { hint.classList.add('show'); }, 400);
         setTimeout(function () { hint.classList.remove('show'); }, 8000);
       }
-      // 第一块瓦片画出来就撤遮罩
-      viewer.addOnceHandler('tile-drawn', function () { setTimeout(reveal, 350); });
-      // 兜底：最多等 12 秒
-      setTimeout(reveal, 12000);
+      // 兜底：最多等 15 秒
+      setTimeout(reveal, 15000);
     });
 
     // 视口变化后再次套用约束（缩窗 / 旋屏时保持"不越界"）
