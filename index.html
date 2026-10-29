@@ -266,14 +266,23 @@
       vp.panTo(mid, true);
       vp.zoomTo(coverZoom, mid, true);
 
-      setTimeout(function () {
+      // 先推近，再等瓦片真正铺上来才撤掉载入遮罩，
+      // 避免网络慢时用户长时间看到空白纸
+      var near = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.54);
+      viewer.viewport.zoomTo(coverZoom * 1.30, near, false);
+
+      var revealed = false;
+      function reveal() {
+        if (revealed) return;
+        revealed = true;
         loading.classList.add('hide');
-        // 略微推近，让接缝两侧都清楚
-        var near = viewer.viewport.imageToViewportCoordinates(W * 0.5, H * 0.54);
-        viewer.viewport.zoomTo(coverZoom * 1.30, near, false);
         setTimeout(function () { hint.classList.add('show'); }, 400);
         setTimeout(function () { hint.classList.remove('show'); }, 8000);
-      }, 220);
+      }
+      // 第一块瓦片画出来就撤遮罩
+      viewer.addOnceHandler('tile-drawn', function () { setTimeout(reveal, 350); });
+      // 兜底：最多等 12 秒
+      setTimeout(reveal, 12000);
     });
 
     // 视口变化后再次套用约束（缩窗 / 旋屏时保持"不越界"）
