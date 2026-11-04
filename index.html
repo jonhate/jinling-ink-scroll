@@ -338,8 +338,8 @@
       viewer.addHandler('tile-drawn', function () {
         drawn++;
         if (!firstTileAt) firstTileAt = performance.now();
-        // 画够 8 块，或首块之后又过了 4 秒，就淡出
-        if (drawn >= 8 || (firstTileAt && performance.now() - firstTileAt > 4000)) {
+        // 一屏约需 11 块；留足余量，慢网下不要提前揭掉占位图
+        if (drawn >= 14 || (firstTileAt && performance.now() - firstTileAt > 8000)) {
           reveal();
         }
       });
