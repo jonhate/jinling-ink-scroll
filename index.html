@@ -193,7 +193,9 @@
 </head>
 <body>
 
-<img id="poster" src="tiles/poster_small.jpg" alt="">
+<img id="poster" alt=""
+     src="https://cdn.jsdelivr.net/gh/jonhate/jinling-ink-scroll@main/tiles/poster_small.jpg"
+     onerror="this.onerror=null;this.src='tiles/poster_small.jpg'">
 <div id="viewer"></div>
 
 <div class="subtitle">金陵古今　山河入梦　·　同景异时</div>
@@ -214,24 +216,28 @@
 
 <div id="loading"><div class="dot"></div><div class="loading-text">正在铺纸…</div></div>
 
-<!-- 本地库优先，失败回退 CDN -->
-<script src="lib/openseadragon.min.js"></script>
+<!-- CDN 优先（国内实测约快 3 倍），失败回退本地 -->
+<script src="https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js"></script>
 <script>
 (function () {
   if (!window.OpenSeadragon) {
     var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js';
+    s.src = 'lib/openseadragon.min.js';
     s.onload = boot;
     document.head.appendChild(s);
   } else {
     boot();
   }
 
+  // 资源根：优先 jsDelivr（GitHub Pages 在国内只有 6~26 KB/s，jsDelivr 实测约 3 倍）
+  // 若被墙或超时，open-failed 会回退到同目录本地文件。
+  var CDN = 'https://cdn.jsdelivr.net/gh/jonhate/jinling-ink-scroll@main';
+
   function boot() {
     var viewer = OpenSeadragon({
       id: 'viewer',
       prefixUrl: '',
-      tileSources: 'tiles/hero.dzi',
+      tileSources: CDN + '/tiles/hero.dzi',
       showNavigationControl: false,
       showNavigator: true,
       navigatorPosition: 'BOTTOM_RIGHT',
@@ -256,6 +262,16 @@
     });
 
     window.__osd = viewer;
+
+    // jsDelivr 若被墙/超时，退回同目录本地瓦片，保证不会白屏
+    var tileFallback = false;
+    viewer.addHandler('open-failed', function () {
+      if (tileFallback) return;
+      tileFallback = true;
+      try { viewer.close(); } catch (e) { }
+      viewer.open('tiles/hero.dzi');
+    });
+
     var loading = document.getElementById('loading');
     var hint = document.querySelector('.hint');
     var pst = document.getElementById('poster');
