@@ -222,6 +222,10 @@
 <!-- 动态注入 OpenSeadragon：不阻塞首屏，占位图先画出来 -->
 <script>
 (function () {
+  // 资源根：优先 jsDelivr（GitHub Pages 国内只有 6~26 KB/s；jsDelivr 实测约 380 KB/s）
+  // 必须最先声明——var 只提升声明不提升赋值，晚于任何 boot() 调用就会读到 undefined。
+  var CDN = 'https://cdn.jsdelivr.net/gh/jonhate/jinling-ink-scroll@main';
+
   // 多源回退：jsDelivr（国内实测 380 KB/s）→ unpkg → 本地
   var SOURCES = [
     'https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js',
@@ -246,10 +250,6 @@
   }
 
   loadNext();
-
-  // 资源根：优先 jsDelivr（GitHub Pages 在国内只有 6~26 KB/s，jsDelivr 实测约 3 倍）
-  // 若被墙或超时，open-failed 会回退到同目录本地文件。
-  var CDN = 'https://cdn.jsdelivr.net/gh/jonhate/jinling-ink-scroll@main';
 
   function boot() {
     var viewer = OpenSeadragon({
