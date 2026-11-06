@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
 <title>水墨金陵梦 · 数字长卷</title>
 <style>
   :root{
@@ -216,18 +219,33 @@
 
 <div id="loading"><div class="dot"></div><div class="loading-text">正在铺纸…</div></div>
 
-<!-- CDN 优先（国内实测约快 3 倍），失败回退本地 -->
-<script src="https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js"></script>
+<!-- 动态注入 OpenSeadragon：不阻塞首屏，占位图先画出来 -->
 <script>
 (function () {
-  if (!window.OpenSeadragon) {
-    var s = document.createElement('script');
-    s.src = 'lib/openseadragon.min.js';
-    s.onload = boot;
-    document.head.appendChild(s);
-  } else {
-    boot();
+  // 多源回退：jsDelivr（国内实测 380 KB/s）→ unpkg → 本地
+  var SOURCES = [
+    'https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js',
+    'https://unpkg.com/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js',
+    'lib/openseadragon.min.js'
+  ];
+  var idx = 0;
+
+  function loadNext() {
+    if (idx >= SOURCES.length) {
+      var t = document.querySelector('.loading-text');
+      if (t) { t.textContent = '加载失败，请刷新重试'; }
+      return;
+    }
+    var sc = document.createElement('script');
+    sc.src = SOURCES[idx++];
+    sc.onload = function () {
+      if (window.OpenSeadragon) { boot(); } else { loadNext(); }
+    };
+    sc.onerror = loadNext;
+    document.head.appendChild(sc);
   }
+
+  loadNext();
 
   // 资源根：优先 jsDelivr（GitHub Pages 在国内只有 6~26 KB/s，jsDelivr 实测约 3 倍）
   // 若被墙或超时，open-failed 会回退到同目录本地文件。
